@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Curso de Inglés con Emma</title>
+<style>
+  :root { --azul:#2f6fed; --azul2:#e8f0ff; --verde:#1fa463; --rojo:#e5484d; --gris:#f4f5f7; --texto:#1d2330; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:linear-gradient(180deg,#eaf1ff,#fff 40%); color:var(--texto); }
+  .app { max-width:640px; margin:0 auto; padding:14px 16px 140px; }
+  h1 { font-size:1.3rem; margin:4px 0 10px; text-align:center; }
+  .controles { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:10px; }
+  select, button { font-size:1rem; border-radius:12px; border:1px solid #cfd6e4; padding:10px 12px; background:#fff; }
+  button { cursor:pointer; }
+  .btn-principal { background:var(--azul); color:#fff; border:none; font-weight:600; }
+  .avatar-caja { display:flex; flex-direction:column; align-items:center; margin:6px 0 10px; }
+  #avatar { width:170px; height:170px; }
+  .estado { font-size:.95rem; color:#5a6478; min-height:1.3em; margin-top:4px; }
+  #boca { transform-origin:100px 132px; transition:transform .1s; }
+  #avatar.hablando #boca { animation:hablar .22s infinite alternate; }
+  @keyframes hablar { from { transform:scaleY(.4); } to { transform:scaleY(1.6); } }
+  .ojo { transform-origin:center; animation:parpadeo 4s infinite; }
+  @keyframes parpadeo { 0%,92%,100% { transform:scaleY(1); } 95% { transform:scaleY(.1); } }
+  #chat { display:flex; flex-direction:column; gap:8px; }
+  .burbuja { padding:10px 13px; border-radius:16px; max-width:88%; line-height:1.4; }
+  .profe { background:#fff; border:1px solid #dfe5f0; align-self:flex-start; }
+  .alumno { background:var(--azul); color:#fff; align-self:flex-end; }
+  .correccion { margin-top:6px; padding:7px 10px; border-radius:10px; background:#fff7e6; border:1px solid #ffd27a; font-size:.92rem; color:#6b4b00; }
+  .tip { margin-top:4px; font-size:.88rem; color:#4d5a70; }
+  .barra { position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid #e3e7ef; padding:10px 16px 14px; }
+  .barra-int { max-width:640px; margin:0 auto; display:flex; gap:8px; align-items:center; }
+  #texto { flex:1; font-size:1rem; padding:12px; border-radius:12px; border:1px solid #cfd6e4; min-width:0; }
+  #mic { width:58px; height:58px; border-radius:50%; border:none; background:var(--verde); color:#fff; font-size:1.6rem; flex-shrink:0; }
+  #mic.activo { background:var(--rojo); animation:pulso 1s infinite; }
+  @keyframes pulso { 50% { box-shadow:0 0 0 10px rgba(229,72,77,.15); } }
+  #enviar { flex-shrink:0; }
+  .aviso { text-align:center; color:var(--rojo); font-size:.92rem; margin:6px 0; min-height:1em; }
+  .pequeno { font-size:.85rem; padding:7px 10px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🇬🇧 Habla inglés con Emma</h1>
+
+  <div class="controles">
+    <select id="nivel">
+      <option value="A1">A1 · Principiante</option>
+      <option value="A2">A2 · Básico</option>
+      <option value="B1">B1 · Intermedio</option>
+      <option value="B2">B2 · Intermedio alto</option>
+      <option value="C1">C1 · Avanzado</option>
+    </select>
+    <select id="tema">
+      <option value="free conversation">Conversación libre</option>
+      <option value="introducing yourself">Presentarse</option>
+      <option value="ordering food at a restaurant">En el restaurante</option>
+      <option value="travel and airports">Viajes y aeropuerto</option>
+      <option value="shopping">De compras</option>
+      <option value="job interview">Entrevista de trabajo</option>
+      <option value="business meetings and sales">Reuniones y ventas</option>
+    </select>
+    <select id="velocidad">
+      <option value="0.75">🐢 Lento</option>
+      <option value="0.9" selected>Normal</option>
+      <option value="1.05">🐇 Rápido</option>
+    </select>
+  </div>
+
+  <div class="controles">
+    <button class="btn-principal" id="empezar">▶ Empezar clase</button>
+    <button class="pequeno" id="repetir">🔁 Repetir</button>
+  </div>
+
+  <div class="avatar-caja">
+    <svg id="avatar" viewBox="0 0 200 200" aria-label="Profesora Emma">
+      <circle cx="100" cy="100" r="96" fill="#dbe7ff"/>
+      <path d="M38 110 Q36 40 100 36 Q164 40 162 110 L162 170 Q130 150 100 150 Q70 150 38 170 Z" fill="#7a4a2a"/>
+      <rect x="84" y="140" width="32" height="26" fill="#f2c7a5"/>
+      <path d="M50 200 Q52 162 100 158 Q148 162 150 200 Z" fill="#2f6fed"/>
+      <ellipse cx="100" cy="102" rx="48" ry="54" fill="#f6d3b6"/>
+      <path d="M52 92 Q60 48 100 50 Q140 48 148 92 Q128 68 100 70 Q72 68 52 92 Z" fill="#7a4a2a"/>
+      <g class="ojo"><ellipse cx="81" cy="104" rx="6" ry="7" fill="#2b2b2b"/></g>
+      <g class="ojo"><ellipse cx="119" cy="104" rx="6" ry="7" fill="#2b2b2b"/></g>
+      <path d="M72 92 Q81 87 90 92" stroke="#5a3a22" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <path d="M110 92 Q119 87 128 92" stroke="#5a3a22" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="70" cy="122" r="7" fill="#f4a6a0" opacity=".55"/>
+      <circle cx="130" cy="122" r="7" fill="#f4a6a0" opacity=".55"/>
+      <ellipse id="boca" cx="100" cy="132" rx="11" ry="5" fill="#c4474f"/>
+    </svg>
+    <div class="estado" id="estado">Elige tu nivel y toca "Empezar clase"</div>
+  </div>
+
+  <div class="aviso" id="aviso"></div>
+  <div id="chat"></div>
+</div>
+
+<div class="barra">
+  <div class="barra-int">
+    <input id="texto" placeholder="Habla con 🎤 o escribe aquí..." autocomplete="off">
+    <button id="enviar" class="pequeno">Enviar</button>
+    <button id="mic" title="Hablar">🎤</button>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const avatar = $("#avatar");
+let historial = [];
+let ultimaRespuesta = "";
+let ocupado = false;
+let escuchando = false;
+let voz = null;
+let rec = null;
+
+function cargarVoz() {
+  const voces = speechSynthesis.getVoices();
+  voz = voces.find(v => /en[-_]US/i.test(v.lang) && /female|samantha|google us english|zira|aria|jenny/i.test(v.name))
+     || voces.find(v => /en[-_]US/i.test(v.lang))
+     || voces.find(v => /^en/i.test(v.lang)) || null;
+}
+if ("speechSynthesis" in window) { cargarVoz(); speechSynthesis.onvoiceschanged = cargarVoz; }
+
+function estado(t) { $("#estado").textContent = t; }
+function aviso(t) { $("#aviso").textContent = t || ""; }
+
+function hablar(texto) {
+  return new Promise(resolve => {
+    if (!("speechSynthesis" in window) || !texto) return resolve();
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(texto);
+    u.lang = "en-US";
+    if (voz) u.voice = voz;
+    u.rate = parseFloat($("#velocidad").value);
+    u.onstart = () => { avatar.classList.add("hablando"); estado("Emma está hablando..."); };
+    const fin = () => { avatar.classList.remove("hablando"); estado("Tu turno: toca 🎤 y habla en inglés"); resolve(); };
+    u.onend = fin; u.onerror = fin;
+    speechSynthesis.speak(u);
+  });
+}
+
+function agregarBurbuja(quien, texto, correccion, tip) {
+  const b = document.createElement("div");
+  b.className = "burbuja " + quien;
+  const p = document.createElement("div");
+  p.textContent = texto;
+  b.appendChild(p);
+  if (correccion) {
+    const c = document.createElement("div");
+    c.className = "correccion";
+    c.textContent = "✏️ Mejor dicho: " + correccion;
+    b.appendChild(c);
+  }
+  if (tip) {
+    const t = document.createElement("div");
+    t.className = "tip";
+    t.textContent = "💡 " + tip;
+    b.appendChild(t);
+  }
+  $("#chat").appendChild(b);
+  b.scrollIntoView({ behavior: "smooth", block: "end" });
+}
+
+async function preguntarAEmma() {
+  ocupado = true;
+  estado("Emma está pensando...");
+  aviso("");
+  try {
+    const r = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nivel: $("#nivel").value, tema: $("#tema").value, historial })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Error del servidor");
+    ultimaRespuesta = data.reply;
+    historial.push({ rol: "profe", texto: data.reply });
+    agregarBurbuja("profe", data.reply, data.correction, data.tip_es);
+    await hablar(data.reply);
+  } catch (e) {
+    aviso("⚠️ " + e.message);
+    estado("Hubo un problema, intenta de nuevo");
+  } finally {
+    ocupado = false;
+  }
+}
+
+async function enviar(texto) {
+  texto = (texto || "").trim();
+  if (!texto || ocupado) return;
+  if (!historial.length) { aviso("Primero toca \"Empezar clase\""); return; }
+  $("#texto").value = "";
+  historial.push({ rol: "alumno", texto });
+  agregarBurbuja("alumno", texto);
+  await preguntarAEmma();
+}
+
+$("#empezar").onclick = async () => {
+  if (ocupado) return;
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  historial = [];
+  $("#chat").innerHTML = "";
+  await preguntarAEmma();
+};
+
+$("#repetir").onclick = () => { if (ultimaRespuesta) hablar(ultimaRespuesta); };
+$("#enviar").onclick = () => enviar($("#texto").value);
+$("#texto").addEventListener("keydown", e => { if (e.key === "Enter") enviar($("#texto").value); });
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+$("#mic").onclick = () => {
+  if (!SR) { aviso("Tu navegador no reconoce la voz. Usa Google Chrome, o escribe abajo."); return; }
+  if (escuchando && rec) { rec.stop(); return; }
+  if (ocupado) return;
+  if (!historial.length) { aviso("Primero toca \"Empezar clase\""); return; }
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  rec = new SR();
+  rec.lang = "en-US";
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+  let dicho = "";
+  rec.onstart = () => { escuchando = true; $("#mic").classList.add("activo"); estado("Te escucho... habla en inglés"); aviso(""); };
+  rec.onresult = e => {
+    let t = "";
+    for (const res of e.results) t += res[0].transcript;
+    dicho = t;
+    $("#texto").value = t;
+  };
+  rec.onerror = e => {
+    if (e.error === "not-allowed") aviso("Debes permitir el uso del micrófono en Chrome.");
+    else if (e.error === "no-speech") aviso("No te escuché. Toca 🎤 e intenta de nuevo.");
+  };
+  rec.onend = () => {
+    escuchando = false;
+    $("#mic").classList.remove("activo");
+    if (dicho.trim()) enviar(dicho);
+    else estado("Tu turno: toca 🎤 y habla en inglés");
+  };
+  rec.start();
+};
+</script>
+</body>
+</html>
