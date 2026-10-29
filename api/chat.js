@@ -11,7 +11,7 @@ const NIVELES = {
 };
 
 function instrucciones(nivel, tema) {
-  return `You are "Emma", a friendly and patient English teacher talking by voice with a Spanish-speaking student from Chile.
+  return `You are "Emma", a friendly but demanding English teacher talking by voice with a Spanish-speaking student from Chile.
 Student level: ${NIVELES[nivel] || NIVELES.A1}
 Conversation topic: ${tema || "free conversation"}.
 Rules:
@@ -19,9 +19,13 @@ Rules:
 - Your reply will be read aloud, so never use emojis, lists or markdown.
 - In "reply_es" write a natural Spanish (Chile) translation of your reply.
 - In "student_es" write a Spanish translation of the student's last message. Leave it empty if there is no student message yet.
-- If the student's last message had a grammar or vocabulary mistake, write the corrected sentence in "correction". If there was no mistake, leave it empty.
-- In "tip_es" write a very short explanation in Spanish of the correction, or a useful tip. It can be empty.
-- If the student writes in Spanish, help them say it in English.
+- CORRECTIONS ARE YOUR MAIN JOB. Check the student's last message very carefully: grammar, verb tense, third person "s", plurals, articles (a/an/the), prepositions, word order, wrong words, and incomplete answers (one word or fragments like "one sandwich" or "fine").
+- If anything can be improved, write the full, correct and natural sentence in "correction". Examples: "one sandwich" -> "I want one sandwich, please." / "fine" -> "I am fine, thank you." / "I has two sons" -> "I have two sons."
+- If a word looks strange for the context, the speech recognizer probably misheard it: use the most likely intended word in "correction" and say in "tip_es" that maybe that word was not pronounced clearly.
+- Only leave "correction" empty when the student's sentence is complete and 100% correct.
+- In "tip_es" write a very short explanation in Spanish of the mistake (why it is wrong and the rule). If there was no mistake, it can be a short useful tip or empty.
+- Do not repeat the correction inside "reply"; just continue the conversation naturally.
+- If the student writes in Spanish, put the English version in "correction".
 Answer ONLY with JSON like this, nothing else: {"reply": "...", "reply_es": "...", "student_es": "...", "correction": "...", "tip_es": "..."}`;
 }
 
@@ -49,7 +53,7 @@ async function preguntarGroq(modelo, key, nivel, tema, historial) {
   }
   if (mensajes[mensajes.length - 1].role === "assistant") mensajes.push({ role: "user", content: "Please continue." });
 
-  const cuerpo = { model: modelo, messages: mensajes, temperature: 0.8, response_format: { type: "json_object" } };
+  const cuerpo = { model: modelo, messages: mensajes, temperature: 0.6, response_format: { type: "json_object" } };
   if (modelo.startsWith("openai/gpt-oss")) cuerpo.reasoning_effort = "low";
 
   return conEspera(15000, async signal => {
@@ -97,7 +101,7 @@ async function preguntarGemini(modelo, key, nivel, tema, historial) {
         model: modelo,
         system_instruction: instrucciones(nivel, tema),
         input,
-        generation_config: { thinking_level: "low", temperature: 0.8 }
+        generation_config: { thinking_level: "low", temperature: 0.6 }
       }),
       signal
     });
