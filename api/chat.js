@@ -17,10 +17,12 @@ Conversation topic: ${tema || "free conversation"}.
 Rules:
 - Keep the conversation going: reply in English in 1 to 3 short sentences and always end with a question for the student.
 - Your reply will be read aloud, so never use emojis, lists or markdown.
+- In "reply_es" write a natural Spanish (Chile) translation of your reply.
+- In "student_es" write a Spanish translation of the student's last message. Leave it empty if there is no student message yet.
 - If the student's last message had a grammar or vocabulary mistake, write the corrected sentence in "correction". If there was no mistake, leave it empty.
 - In "tip_es" write a very short explanation in Spanish of the correction, or a useful tip. It can be empty.
 - If the student writes in Spanish, help them say it in English.
-Answer ONLY with JSON like this, nothing else: {"reply": "...", "correction": "...", "tip_es": "..."}`;
+Answer ONLY with JSON like this, nothing else: {"reply": "...", "reply_es": "...", "student_es": "...", "correction": "...", "tip_es": "..."}`;
 }
 
 function leerJSON(texto) {
@@ -28,7 +30,7 @@ function leerJSON(texto) {
   try { return JSON.parse(limpio); } catch {}
   const m = limpio.match(/\{[\s\S]*\}/);
   if (m) { try { return JSON.parse(m[0]); } catch {} }
-  return { reply: limpio, correction: "", tip_es: "" };
+  return { reply: limpio };
 }
 
 async function conEspera(ms, fn) {
@@ -130,7 +132,12 @@ module.exports = async (req, res) => {
       const out = leerJSON(texto);
       console.log("Respuesta OK con", intento.nombre);
       return res.status(200).json({
-        reply: out.reply || "", correction: out.correction || "", tip_es: out.tip_es || "", modelo: intento.nombre
+        reply: out.reply || "",
+        reply_es: out.reply_es || "",
+        student_es: out.student_es || "",
+        correction: out.correction || "",
+        tip_es: out.tip_es || "",
+        modelo: intento.nombre
       });
     } catch (e) {
       ultimoError = e.name === "AbortError" ? `${intento.nombre} tardó demasiado` : e.message;
