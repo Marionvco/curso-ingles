@@ -5,19 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Curso de Inglés con Emma</title>
 <style>
-  :root { --azul:#2f6fed; --azul2:#e8f0ff; --verde:#1fa463; --rojo:#e5484d; --gris:#f4f5f7; --texto:#1d2330; }
+  :root { --azul:#2f6fed; --verde:#1fa463; --rojo:#e5484d; --texto:#1d2330; }
   * { box-sizing:border-box; }
   body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:linear-gradient(180deg,#eaf1ff,#fff 40%); color:var(--texto); }
-  .app { max-width:640px; margin:0 auto; padding:14px 16px 140px; }
+  .app { max-width:640px; margin:0 auto; padding:14px 16px 190px; }
   h1 { font-size:1.3rem; margin:4px 0 10px; text-align:center; }
-  .controles { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:10px; }
+  .controles { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; margin-bottom:10px; }
   select, button { font-size:1rem; border-radius:12px; border:1px solid #cfd6e4; padding:10px 12px; background:#fff; }
   button { cursor:pointer; }
+  .interruptor { display:flex; align-items:center; gap:6px; font-size:.95rem; background:#fff; border:1px solid #cfd6e4; border-radius:12px; padding:9px 12px; cursor:pointer; }
   .btn-principal { background:var(--azul); color:#fff; border:none; font-weight:600; }
   .avatar-caja { display:flex; flex-direction:column; align-items:center; margin:6px 0 10px; }
   #avatar { width:170px; height:170px; }
-  .estado { font-size:.95rem; color:#5a6478; min-height:1.3em; margin-top:4px; }
-  #boca { transform-origin:100px 132px; transition:transform .1s; }
+  .estado { font-size:.95rem; color:#5a6478; min-height:1.3em; margin-top:4px; text-align:center; }
+  #boca { transform-origin:100px 132px; }
   #avatar.hablando #boca { animation:hablar .22s infinite alternate; }
   @keyframes hablar { from { transform:scaleY(.4); } to { transform:scaleY(1.6); } }
   .ojo { transform-origin:center; animation:parpadeo 4s infinite; }
@@ -25,11 +26,26 @@
   #chat { display:flex; flex-direction:column; gap:8px; }
   .burbuja { padding:10px 13px; border-radius:16px; max-width:88%; line-height:1.4; }
   .profe { background:#fff; border:1px solid #dfe5f0; align-self:flex-start; }
+  .corrige { background:#fff7e6; border:1px solid #ffd27a; align-self:flex-start; }
+  .corrige .titulo { font-size:.85rem; color:#8a6100; font-weight:600; }
+  .corrige .frase { font-size:1.05rem; font-weight:600; color:#4a3300; margin:2px 0; }
   .alumno { background:var(--azul); color:#fff; align-self:flex-end; }
-  .correccion { margin-top:6px; padding:7px 10px; border-radius:10px; background:#fff7e6; border:1px solid #ffd27a; font-size:.92rem; color:#6b4b00; }
+  .alumno.eval { background:#fff; color:var(--texto); border:1px solid #dfe5f0; }
+  .es { font-size:.9rem; font-style:italic; color:#5a6478; margin-top:4px; }
+  .alumno .es { color:#dce7ff; }
+  body.sin-es .es { display:none; }
   .tip { margin-top:4px; font-size:.88rem; color:#4d5a70; }
+  .acciones { display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
+  .mini { font-size:.82rem; padding:5px 9px; border-radius:10px; }
+  .ok { color:var(--verde); font-weight:600; }
+  .mal { color:var(--rojo); font-weight:600; text-decoration:underline wavy; }
+  .nota { font-size:.85rem; margin-top:4px; color:#4d5a70; }
+  #practica { display:none; background:#eef9f2; border:1px solid #a7e3bf; border-radius:12px; padding:8px 12px; margin-bottom:8px; font-size:.95rem; }
+  #practica b { color:#14653d; }
+  #intentosTxt { font-size:.85rem; color:#4d5a70; }
   .barra { position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid #e3e7ef; padding:10px 16px 14px; }
-  .barra-int { max-width:640px; margin:0 auto; display:flex; gap:8px; align-items:center; }
+  .barra-int { max-width:640px; margin:0 auto; }
+  .fila { display:flex; gap:8px; align-items:center; }
   #texto { flex:1; font-size:1rem; padding:12px; border-radius:12px; border:1px solid #cfd6e4; min-width:0; }
   #mic { width:58px; height:58px; border-radius:50%; border:none; background:var(--verde); color:#fff; font-size:1.6rem; flex-shrink:0; }
   #mic.activo { background:var(--rojo); animation:pulso 1s infinite; }
@@ -65,6 +81,7 @@
       <option value="0.9" selected>Normal</option>
       <option value="1.05">🐇 Rápido</option>
     </select>
+    <label class="interruptor"><input type="checkbox" id="verEs" checked> 🇪🇸 Ver traducción</label>
   </div>
 
   <div class="controles">
@@ -97,21 +114,41 @@
 
 <div class="barra">
   <div class="barra-int">
-    <input id="texto" placeholder="Habla con 🎤 o escribe aquí..." autocomplete="off">
-    <button id="enviar" class="pequeno">Enviar</button>
-    <button id="mic" title="Hablar">🎤</button>
+    <div id="practica">🎯 Repite en voz alta: <b id="objetivoTxt"></b> <span id="intentosTxt"></span>
+      <div class="acciones">
+        <button class="mini" id="oirObjetivo">🔊 Escuchar lento</button>
+        <button class="mini" id="saltar">⏭ Continuar</button>
+      </div>
+    </div>
+    <div class="fila">
+      <input id="texto" placeholder="Habla con 🎤 o escribe aquí..." autocomplete="off">
+      <button id="enviar" class="pequeno">Enviar</button>
+      <button id="mic" title="Hablar">🎤</button>
+    </div>
   </div>
 </div>
 
 <script>
 const $ = s => document.querySelector(s);
 const avatar = $("#avatar");
+const MAX_INTENTOS = 3;
 let historial = [];
 let ultimaRespuesta = "";
 let ocupado = false;
 let escuchando = false;
 let voz = null;
 let rec = null;
+let objetivo = "";
+let pendiente = null;
+let intentos = 0;
+
+try { if (localStorage.getItem("verEs") === "no") $("#verEs").checked = false; } catch {}
+function aplicarVerEs() {
+  document.body.classList.toggle("sin-es", !$("#verEs").checked);
+  try { localStorage.setItem("verEs", $("#verEs").checked ? "si" : "no"); } catch {}
+}
+$("#verEs").onchange = aplicarVerEs;
+aplicarVerEs();
 
 function cargarVoz() {
   const voces = speechSynthesis.getVoices();
@@ -123,45 +160,206 @@ if ("speechSynthesis" in window) { cargarVoz(); speechSynthesis.onvoiceschanged 
 
 function estado(t) { $("#estado").textContent = t; }
 function aviso(t) { $("#aviso").textContent = t || ""; }
+function turnoAlumno() {
+  estado(objetivo ? "Tu turno: toca 🎤 y repite la frase" : "Tu turno: toca 🎤 y habla en inglés");
+}
+function bajar(el) { el.scrollIntoView({ behavior: "smooth", block: "end" }); }
 
-function hablar(texto) {
+function decir(texto, factor) {
   return new Promise(resolve => {
     if (!("speechSynthesis" in window) || !texto) return resolve();
-    speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(texto);
     u.lang = "en-US";
     if (voz) u.voice = voz;
-    u.rate = parseFloat($("#velocidad").value);
+    u.rate = parseFloat($("#velocidad").value) * (factor || 1);
     u.onstart = () => { avatar.classList.add("hablando"); estado("Emma está hablando..."); };
-    const fin = () => { avatar.classList.remove("hablando"); estado("Tu turno: toca 🎤 y habla en inglés"); resolve(); };
+    const fin = () => { avatar.classList.remove("hablando"); resolve(); };
     u.onend = fin; u.onerror = fin;
     speechSynthesis.speak(u);
   });
 }
 
-function agregarBurbuja(quien, texto, correccion, tip) {
+async function hablar(partes) {
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  for (const p of partes) await decir(p.t, p.v);
+  turnoAlumno();
+}
+
+function crearEs(textoEs) {
+  const d = document.createElement("div");
+  d.className = "es";
+  d.textContent = "🇪🇸 " + textoEs;
+  return d;
+}
+
+function burbujaAlumno(texto) {
   const b = document.createElement("div");
-  b.className = "burbuja " + quien;
+  b.className = "burbuja alumno";
   const p = document.createElement("div");
   p.textContent = texto;
   b.appendChild(p);
-  if (correccion) {
-    const c = document.createElement("div");
-    c.className = "correccion";
-    c.textContent = "✏️ Mejor dicho: " + correccion;
-    b.appendChild(c);
-  }
-  if (tip) {
-    const t = document.createElement("div");
-    t.className = "tip";
-    t.textContent = "💡 " + tip;
-    b.appendChild(t);
-  }
   $("#chat").appendChild(b);
-  b.scrollIntoView({ behavior: "smooth", block: "end" });
+  bajar(b);
+  return b;
 }
 
-async function preguntarAEmma() {
+function burbujaEmma(texto, textoEs) {
+  const b = document.createElement("div");
+  b.className = "burbuja profe";
+  const p = document.createElement("div");
+  p.textContent = texto;
+  b.appendChild(p);
+  if (textoEs) b.appendChild(crearEs(textoEs));
+  const acc = document.createElement("div");
+  acc.className = "acciones";
+  const lento = document.createElement("button");
+  lento.className = "mini";
+  lento.textContent = "🔊 Lento";
+  lento.onclick = () => hablar([{ t: texto, v: 0.7 }]);
+  const prac = document.createElement("button");
+  prac.className = "mini";
+  prac.textContent = "🎯 Practicar frase";
+  prac.onclick = () => iniciarPractica(texto, false);
+  acc.appendChild(lento);
+  acc.appendChild(prac);
+  b.appendChild(acc);
+  $("#chat").appendChild(b);
+  bajar(b);
+}
+
+function burbujaCorreccion(correccion, tip) {
+  const b = document.createElement("div");
+  b.className = "burbuja corrige";
+  const t = document.createElement("div");
+  t.className = "titulo";
+  t.textContent = "✏️ Mejor dicho:";
+  const f = document.createElement("div");
+  f.className = "frase";
+  f.textContent = correccion;
+  b.appendChild(t);
+  b.appendChild(f);
+  if (tip) {
+    const e = document.createElement("div");
+    e.className = "tip";
+    e.textContent = "💡 " + tip;
+    b.appendChild(e);
+  }
+  const acc = document.createElement("div");
+  acc.className = "acciones";
+  const lento = document.createElement("button");
+  lento.className = "mini";
+  lento.textContent = "🔊 Escuchar lento";
+  lento.onclick = () => hablar([{ t: correccion, v: 0.65 }]);
+  acc.appendChild(lento);
+  b.appendChild(acc);
+  $("#chat").appendChild(b);
+  bajar(b);
+}
+
+const CONTRACCIONES = {
+  "i'm":"i am","you're":"you are","he's":"he is","she's":"she is","it's":"it is","we're":"we are","they're":"they are",
+  "i've":"i have","you've":"you have","we've":"we have","i'll":"i will","you'll":"you will","i'd":"i would",
+  "don't":"do not","doesn't":"does not","didn't":"did not","can't":"can not","cannot":"can not","won't":"will not","isn't":"is not",
+  "aren't":"are not","wasn't":"was not","weren't":"were not","that's":"that is","what's":"what is","let's":"let us","there's":"there is"
+};
+function normalizar(t) {
+  const palabras = String(t || "").toLowerCase().replace(/[’`]/g, "'").replace(/[^a-z0-9' ]/g, " ").split(/\s+/).filter(Boolean);
+  const out = [];
+  for (const w of palabras) {
+    if (CONTRACCIONES[w]) out.push(...CONTRACCIONES[w].split(" "));
+    else out.push(w.replace(/'/g, ""));
+  }
+  return out.filter(Boolean);
+}
+
+function mostrarPractica(frase) {
+  objetivo = frase;
+  intentos = 0;
+  $("#objetivoTxt").textContent = frase;
+  $("#intentosTxt").textContent = "";
+  $("#saltar").textContent = pendiente ? "⏭ Continuar" : "✖ Volver a conversar";
+  $("#practica").style.display = "block";
+  aviso("");
+}
+function ocultarPractica() {
+  objetivo = "";
+  intentos = 0;
+  $("#practica").style.display = "none";
+}
+
+function iniciarPractica(frase, auto) {
+  if (!auto) pendiente = null;
+  mostrarPractica(frase);
+  hablar([{ t: "Repeat after me.", v: 1 }, { t: frase, v: 0.75 }]);
+}
+
+async function continuarConversacion(intro) {
+  const d = pendiente;
+  pendiente = null;
+  ocultarPractica();
+  if (!d) { if (intro) await hablar([{ t: intro, v: 1 }]); else turnoAlumno(); return; }
+  await mostrarRespuesta(d, intro);
+}
+
+async function evaluarPronunciacion(dicho) {
+  const meta = normalizar(objetivo);
+  const disponibles = normalizar(dicho);
+  const resultado = meta.map(w => {
+    const i = disponibles.indexOf(w);
+    if (i >= 0) { disponibles.splice(i, 1); return { w, ok: true }; }
+    return { w, ok: false };
+  });
+  const malas = resultado.filter(r => !r.ok).map(r => r.w);
+
+  const b = document.createElement("div");
+  b.className = "burbuja alumno eval";
+  const linea = document.createElement("div");
+  resultado.forEach(r => {
+    const s = document.createElement("span");
+    s.className = r.ok ? "ok" : "mal";
+    s.textContent = r.w + " ";
+    linea.appendChild(s);
+  });
+  b.appendChild(linea);
+  const nota = document.createElement("div");
+  nota.className = "nota";
+  nota.textContent = malas.length
+    ? "Emma entendió: \"" + dicho + "\" — las palabras en rojo no se entendieron bien."
+    : "¡Muy bien! Se entendió todo.";
+  b.appendChild(nota);
+  $("#chat").appendChild(b);
+  bajar(b);
+
+  if (!malas.length) {
+    await continuarConversacion("Perfect! Well done.");
+    return;
+  }
+
+  intentos++;
+  if (pendiente && intentos >= MAX_INTENTOS) {
+    await continuarConversacion("Good effort! Keep practicing that sentence. Let's continue.");
+    return;
+  }
+  $("#intentosTxt").textContent = pendiente ? `(intento ${intentos} de ${MAX_INTENTOS})` : "";
+  const partes = [{ t: "Almost! Listen carefully.", v: 1 }];
+  malas.slice(0, 4).forEach(w => partes.push({ t: w, v: 0.6 }));
+  partes.push({ t: "Now the whole sentence.", v: 1 });
+  partes.push({ t: objetivo, v: 0.75 });
+  partes.push({ t: "Try again.", v: 1 });
+  await hablar(partes);
+}
+
+async function mostrarRespuesta(data, intro) {
+  ultimaRespuesta = data.reply;
+  historial.push({ rol: "profe", texto: data.reply });
+  burbujaEmma(data.reply, data.reply_es);
+  const partes = [];
+  if (intro) partes.push({ t: intro, v: 1 });
+  partes.push({ t: data.reply, v: 1 });
+  await hablar(partes);
+}
+
+async function preguntarAEmma(bAlumno) {
   ocupado = true;
   estado("Emma está pensando...");
   aviso("");
@@ -173,10 +371,22 @@ async function preguntarAEmma() {
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "Error del servidor");
-    ultimaRespuesta = data.reply;
-    historial.push({ rol: "profe", texto: data.reply });
-    agregarBurbuja("profe", data.reply, data.correction, data.tip_es);
-    await hablar(data.reply);
+    if (bAlumno && data.student_es) bAlumno.appendChild(crearEs(data.student_es));
+
+    if (data.correction) {
+      burbujaCorreccion(data.correction, data.tip_es);
+      pendiente = data;
+      mostrarPractica(data.correction);
+      ocupado = false;
+      await hablar([
+        { t: "A better way to say it is:", v: 1 },
+        { t: data.correction, v: 0.75 },
+        { t: "Please repeat after me.", v: 1 }
+      ]);
+    } else {
+      ocupado = false;
+      await mostrarRespuesta(data);
+    }
   } catch (e) {
     aviso("⚠️ " + e.message);
     estado("Hubo un problema, intenta de nuevo");
@@ -188,22 +398,30 @@ async function preguntarAEmma() {
 async function enviar(texto) {
   texto = (texto || "").trim();
   if (!texto || ocupado) return;
-  if (!historial.length) { aviso("Primero toca \"Empezar clase\""); return; }
   $("#texto").value = "";
+  if (objetivo) { await evaluarPronunciacion(texto); return; }
+  if (!historial.length) { aviso("Primero toca \"Empezar clase\""); return; }
   historial.push({ rol: "alumno", texto });
-  agregarBurbuja("alumno", texto);
-  await preguntarAEmma();
+  const b = burbujaAlumno(texto);
+  await preguntarAEmma(b);
 }
 
 $("#empezar").onclick = async () => {
   if (ocupado) return;
   if ("speechSynthesis" in window) speechSynthesis.cancel();
   historial = [];
+  pendiente = null;
+  ocultarPractica();
   $("#chat").innerHTML = "";
-  await preguntarAEmma();
+  await preguntarAEmma(null);
 };
 
-$("#repetir").onclick = () => { if (ultimaRespuesta) hablar(ultimaRespuesta); };
+$("#repetir").onclick = () => {
+  if (objetivo) hablar([{ t: objetivo, v: 0.75 }]);
+  else if (ultimaRespuesta) hablar([{ t: ultimaRespuesta, v: 1 }]);
+};
+$("#oirObjetivo").onclick = () => { if (objetivo) hablar([{ t: objetivo, v: 0.65 }]); };
+$("#saltar").onclick = () => continuarConversacion(pendiente ? "No problem. Let's continue." : "");
 $("#enviar").onclick = () => enviar($("#texto").value);
 $("#texto").addEventListener("keydown", e => { if (e.key === "Enter") enviar($("#texto").value); });
 
@@ -212,14 +430,14 @@ $("#mic").onclick = () => {
   if (!SR) { aviso("Tu navegador no reconoce la voz. Usa Google Chrome, o escribe abajo."); return; }
   if (escuchando && rec) { rec.stop(); return; }
   if (ocupado) return;
-  if (!historial.length) { aviso("Primero toca \"Empezar clase\""); return; }
+  if (!historial.length && !objetivo) { aviso("Primero toca \"Empezar clase\""); return; }
   if ("speechSynthesis" in window) speechSynthesis.cancel();
   rec = new SR();
   rec.lang = "en-US";
   rec.interimResults = true;
   rec.maxAlternatives = 1;
   let dicho = "";
-  rec.onstart = () => { escuchando = true; $("#mic").classList.add("activo"); estado("Te escucho... habla en inglés"); aviso(""); };
+  rec.onstart = () => { escuchando = true; $("#mic").classList.add("activo"); estado(objetivo ? "Te escucho... repite la frase" : "Te escucho... habla en inglés"); aviso(""); };
   rec.onresult = e => {
     let t = "";
     for (const res of e.results) t += res[0].transcript;
@@ -234,7 +452,7 @@ $("#mic").onclick = () => {
     escuchando = false;
     $("#mic").classList.remove("activo");
     if (dicho.trim()) enviar(dicho);
-    else estado("Tu turno: toca 🎤 y habla en inglés");
+    else turnoAlumno();
   };
   rec.start();
 };
