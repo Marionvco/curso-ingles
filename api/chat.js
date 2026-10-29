@@ -85,3 +85,64 @@ function extraerTextoGemini(data) {
 async function preguntarGemini(modelo, key, nivel, tema, historial) {
   const lineas = (Array.isArray(historial) ? historial : []).slice(-16).map(m =>
     (m.rol === "profe" ? "Emma: " : "Student: ") + String(m.texto || "").slice(0, 1000));
+  const input = lineas.length
+    ? "Conversation so far:\n" + lineas.join("\n") + "\n\nWrite Emma's next turn as JSON."
+    : "The class is starting now. Greet the student warmly and ask your first question.";
+
+  return conEspera(25000, async signal => {
+    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key, "Api-Revision": "2026-05-20" },
+      body: JSON.stringify({
+        model: modelo,
+        system_instruction: instrucciones(nivel, tema),
+        input,
+        generation_config: { thinking_level: "low", temperature: 0.8 }
+      }),
+      signal
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error((data && data.error && data.error.message) || `Error ${r.status}`);
+    return extraerTextoGemini(data);
+  });
+}
+
+// ---------- PRINCIPAL ----------
+module.exports = async (req, res) => {
+  if (req.method !== "POST") return res.status(405).json({ error: "Usa POST" });
+
+  let datos = req.body || {};
+  if (typeof datos === "string") { try { datos = JSON.parse(datos); } catch { datos = {}; } }
+  const { nivel = "A1", tema = "", historial = [] } = datos;
+
+  const groqKey = (process.env.GROQ_API_KEY || "").trim();
+  const geminiKey = (process.env.GEMINI_API_KEY || "").trim();
+
+  const intentos = [];
+  if (groqKey) for (const m of GROQ_MODELOS) intentos.push({ nombre: "groq:" + m, fn: () => preguntarGroq(m, groqKey, nivel, tema, historial) });
+  if (geminiKey) for (const m of GEMINI_MODELOS) intentos.push({ nombre: "gemini:" + m, fn: () => preguntarGemini(m, geminiKey, nivel, tema, historial) });
+  if (!intentos.length) return res.status(500).json({ error: "Faltan las claves GROQ_API_KEY o GEMINI_API_KEY en Vercel" });
+
+  let ultimoError = "";
+  for (const intento of intentos) {
+    console.log("Probando", intento.nombre);
+    try {
+      const texto = await intento.fn();
+      if (!texto) { ultimoError = "Respuesta vacía"; console.error(intento.nombre, "respondió vacío"); continue; }
+      const out = leerJSON(texto);
+      console.log("Respuesta OK con", intento.nombre);
+      return res.status(200).json({
+        reply: out.reply || "",
+        reply_es: out.reply_es || "",
+        student_es: out.student_es || "",
+        correction: out.correction || "",
+        tip_es: out.tip_es || "",
+        modelo: intento.nombre
+      });
+    } catch (e) {
+      ultimoError = e.name === "AbortError" ? `${intento.nombre} tardó demasiado` : e.message;
+      console.error(intento.nombre, "falló:", ultimoError);
+    }
+  }
+  return res.status(502).json({ error: ultimoError || "No se pudo conectar con la IA" });
+};
