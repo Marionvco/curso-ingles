@@ -1,4 +1,5 @@
-// Intermediario: Groq (rápido y gratis) primero, Gemini de respaldo
+// Intermediario: Groq (rápido y gratis) primero, Gemini de respaldo.
+// Dos trabajos en paralelo: Emma conversa y un "revisor" corrige al alumno.
 const GROQ_MODELOS = [process.env.GROQ_MODEL, "openai/gpt-oss-120b", "llama-3.1-8b-instant"].filter(Boolean);
 const GEMINI_MODELOS = [process.env.GEMINI_MODEL, "gemini-3.8-flash", "gemini-3.5-flash"].filter(Boolean);
 
@@ -10,23 +11,40 @@ const NIVELES = {
   C1: "Advanced (C1). Speak like a native, rich vocabulary, debate and nuance."
 };
 
-function instrucciones(nivel, tema) {
-  return `You are "Emma", a friendly but demanding English teacher talking by voice with a Spanish-speaking student from Chile.
+function instruccionesEmma(nivel, tema) {
+  return `You are "Emma", a friendly English teacher talking by voice with a Spanish-speaking student from Chile.
 Student level: ${NIVELES[nivel] || NIVELES.A1}
 Conversation topic: ${tema || "free conversation"}.
 Rules:
-- Keep the conversation going: reply in English in 1 to 3 short sentences and always end with a question for the student.
+- Reply in English in 1 to 3 short sentences and always end with a question for the student.
 - Your reply will be read aloud, so never use emojis, lists or markdown.
+- Do not correct the student here (another teacher does that). Just continue the conversation naturally.
 - In "reply_es" write a natural Spanish (Chile) translation of your reply.
-- In "student_es" write a Spanish translation of the student's last message. Leave it empty if there is no student message yet.
-- CORRECTIONS ARE YOUR MAIN JOB. Check the student's last message very carefully: grammar, verb tense, third person "s", plurals, articles (a/an/the), prepositions, word order, wrong words, and incomplete answers (one word or fragments like "one sandwich" or "fine").
-- If anything can be improved, write the full, correct and natural sentence in "correction". Examples: "one sandwich" -> "I want one sandwich, please." / "fine" -> "I am fine, thank you." / "I has two sons" -> "I have two sons."
-- If a word looks strange for the context, the speech recognizer probably misheard it: use the most likely intended word in "correction" and say in "tip_es" that maybe that word was not pronounced clearly.
-- Only leave "correction" empty when the student's sentence is complete and 100% correct.
-- In "tip_es" write a very short explanation in Spanish of the mistake (why it is wrong and the rule). If there was no mistake, it can be a short useful tip or empty.
-- Do not repeat the correction inside "reply"; just continue the conversation naturally.
-- If the student writes in Spanish, put the English version in "correction".
-Answer ONLY with JSON like this, nothing else: {"reply": "...", "reply_es": "...", "student_es": "...", "correction": "...", "tip_es": "..."}`;
+Answer ONLY with JSON like this, nothing else: {"reply": "...", "reply_es": "..."}`;
+}
+
+function instruccionesRevisor(nivel) {
+  return `You are a strict but kind English teacher checking ONE answer from a Spanish-speaking student.
+Student level: ${NIVELES[nivel] || NIVELES.A1}
+You receive the teacher's question and the student's answer (captured by speech recognition, so ignore capital letters and punctuation).
+Decide if the answer is a COMPLETE, grammatically correct and natural English sentence that answers the question.
+Mark it as NOT ok ("ok": false) when:
+- it is one word or a fragment, for example "yes", "no", "fine", "I like", "one sandwich", "pizza"
+- it has grammar mistakes: verb tense, third person "s", plurals, articles, prepositions, word order
+- it uses a wrong word, or a word that makes no sense in context (probably mispronounced)
+- it does not really answer the question
+- it is written in Spanish
+When NOT ok, write in "correction" the best complete and natural sentence the student should say, short and at the student's level.
+Examples:
+Q "Do you like to fly?" A "yes" -> "Yes, I like to fly."
+Q "What would you like to eat?" A "one sandwich" -> "I would like a sandwich, please."
+Q "How are you?" A "fine" -> "I am fine, thank you."
+A "I has two sons" -> "I have two sons."
+A "I like summer" when talking about food -> "I like soup." (tip: maybe "soup" was not pronounced clearly)
+In "tip_es" explain very briefly in Spanish what was wrong and the rule.
+In "student_es" translate the student's answer to Spanish.
+If the answer is complete and correct, use "ok": true and leave "correction" and "tip_es" empty.
+Answer ONLY with JSON like this, nothing else: {"ok": true, "correction": "", "tip_es": "", "student_es": "..."}`;
 }
 
 function leerJSON(texto) {
@@ -34,7 +52,7 @@ function leerJSON(texto) {
   try { return JSON.parse(limpio); } catch {}
   const m = limpio.match(/\{[\s\S]*\}/);
   if (m) { try { return JSON.parse(m[0]); } catch {} }
-  return { reply: limpio };
+  return null;
 }
 
 async function conEspera(ms, fn) {
@@ -44,18 +62,14 @@ async function conEspera(ms, fn) {
 }
 
 // ---------- GROQ ----------
-async function preguntarGroq(modelo, key, nivel, tema, historial) {
-  const mensajes = [{ role: "system", content: instrucciones(nivel, tema) }];
-  const previos = (Array.isArray(historial) ? historial : []).slice(-16);
-  if (!previos.length) mensajes.push({ role: "user", content: "Hello! Please start the class." });
-  for (const m of previos) {
-    mensajes.push({ role: m.rol === "profe" ? "assistant" : "user", content: String(m.texto || "").slice(0, 1000) });
-  }
-  if (mensajes[mensajes.length - 1].role === "assistant") mensajes.push({ role: "user", content: "Please continue." });
-
-  const cuerpo = { model: modelo, messages: mensajes, temperature: 0.6, response_format: { type: "json_object" } };
+async function llamarGroq(modelo, key, sistema, mensajes, temperatura) {
+  const cuerpo = {
+    model: modelo,
+    messages: [{ role: "system", content: sistema }, ...mensajes],
+    temperature: temperatura,
+    response_format: { type: "json_object" }
+  };
   if (modelo.startsWith("openai/gpt-oss")) cuerpo.reasoning_effort = "low";
-
   return conEspera(15000, async signal => {
     const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -86,22 +100,18 @@ function extraerTextoGemini(data) {
   return "";
 }
 
-async function preguntarGemini(modelo, key, nivel, tema, historial) {
-  const lineas = (Array.isArray(historial) ? historial : []).slice(-16).map(m =>
-    (m.rol === "profe" ? "Emma: " : "Student: ") + String(m.texto || "").slice(0, 1000));
-  const input = lineas.length
-    ? "Conversation so far:\n" + lineas.join("\n") + "\n\nWrite Emma's next turn as JSON."
-    : "The class is starting now. Greet the student warmly and ask your first question.";
-
+async function llamarGemini(modelo, key, sistema, mensajes, temperatura) {
+  const input = mensajes.map(m => (m.role === "assistant" ? "Emma: " : "Student: ") + m.content).join("\n")
+    + "\n\nAnswer only with the JSON.";
   return conEspera(25000, async signal => {
     const r = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key, "Api-Revision": "2026-05-20" },
       body: JSON.stringify({
         model: modelo,
-        system_instruction: instrucciones(nivel, tema),
+        system_instruction: sistema,
         input,
-        generation_config: { thinking_level: "low", temperature: 0.6 }
+        generation_config: { thinking_level: "low", temperature: temperatura }
       }),
       signal
     });
@@ -111,42 +121,86 @@ async function preguntarGemini(modelo, key, nivel, tema, historial) {
   });
 }
 
+// Prueba Groq y luego Gemini hasta obtener un JSON válido
+async function pedirJSON(nombreTarea, sistema, mensajes, temperatura) {
+  const groqKey = (process.env.GROQ_API_KEY || "").trim();
+  const geminiKey = (process.env.GEMINI_API_KEY || "").trim();
+  const intentos = [];
+  if (groqKey) for (const m of GROQ_MODELOS) intentos.push({ nombre: "groq:" + m, fn: () => llamarGroq(m, groqKey, sistema, mensajes, temperatura) });
+  if (geminiKey) for (const m of GEMINI_MODELOS) intentos.push({ nombre: "gemini:" + m, fn: () => llamarGemini(m, geminiKey, sistema, mensajes, temperatura) });
+  if (!intentos.length) throw new Error("Faltan las claves GROQ_API_KEY o GEMINI_API_KEY en Vercel");
+
+  let ultimoError = "";
+  for (const intento of intentos) {
+    try {
+      const texto = await intento.fn();
+      const json = leerJSON(texto);
+      if (json) { console.log(nombreTarea, "OK con", intento.nombre); return json; }
+      ultimoError = "Respuesta sin JSON";
+      console.error(nombreTarea, intento.nombre, "respondió sin JSON");
+    } catch (e) {
+      ultimoError = e.name === "AbortError" ? `${intento.nombre} tardó demasiado` : e.message;
+      console.error(nombreTarea, intento.nombre, "falló:", ultimoError);
+    }
+  }
+  throw new Error(ultimoError || "No se pudo conectar con la IA");
+}
+
+function simple(t) {
+  return String(t || "").toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+}
+
 // ---------- PRINCIPAL ----------
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Usa POST" });
 
   let datos = req.body || {};
   if (typeof datos === "string") { try { datos = JSON.parse(datos); } catch { datos = {}; } }
-  const { nivel = "A1", tema = "", historial = [] } = datos;
+  const { nivel = "A1", tema = "" } = datos;
+  const historial = (Array.isArray(datos.historial) ? datos.historial : []).slice(-16);
 
-  const groqKey = (process.env.GROQ_API_KEY || "").trim();
-  const geminiKey = (process.env.GEMINI_API_KEY || "").trim();
+  // Conversación para Emma
+  const mensajes = historial.map(m => ({
+    role: m.rol === "profe" ? "assistant" : "user",
+    content: String(m.texto || "").slice(0, 1000)
+  }));
+  if (!mensajes.length) mensajes.push({ role: "user", content: "Hello! Please start the class." });
+  if (mensajes[mensajes.length - 1].role === "assistant") mensajes.push({ role: "user", content: "Please continue." });
 
-  const intentos = [];
-  if (groqKey) for (const m of GROQ_MODELOS) intentos.push({ nombre: "groq:" + m, fn: () => preguntarGroq(m, groqKey, nivel, tema, historial) });
-  if (geminiKey) for (const m of GEMINI_MODELOS) intentos.push({ nombre: "gemini:" + m, fn: () => preguntarGemini(m, geminiKey, nivel, tema, historial) });
-  if (!intentos.length) return res.status(500).json({ error: "Faltan las claves GROQ_API_KEY o GEMINI_API_KEY en Vercel" });
-
-  let ultimoError = "";
-  for (const intento of intentos) {
-    console.log("Probando", intento.nombre);
-    try {
-      const texto = await intento.fn();
-      if (!texto) { ultimoError = "Respuesta vacía"; console.error(intento.nombre, "respondió vacío"); continue; }
-      const out = leerJSON(texto);
-      console.log("Respuesta OK con", intento.nombre);
-      return res.status(200).json({
-        reply: out.reply || "",
-        reply_es: out.reply_es || "",
-        student_es: out.student_es || "",
-        correction: out.correction || "",
-        tip_es: out.tip_es || "",
-        modelo: intento.nombre
-      });
-    } catch (e) {
-      ultimoError = e.name === "AbortError" ? `${intento.nombre} tardó demasiado` : e.message;
-      console.error(intento.nombre, "falló:", ultimoError);
-    }
+  // Última respuesta del alumno y la pregunta de Emma anterior
+  const ultimo = historial[historial.length - 1];
+  const respuestaAlumno = ultimo && ultimo.rol !== "profe" ? String(ultimo.texto || "") : "";
+  let preguntaEmma = "";
+  for (let i = historial.length - 2; i >= 0; i--) {
+    if (historial[i].rol === "profe") { preguntaEmma = String(historial[i].texto || ""); break; }
   }
-  return res.status(502).json({ error: ultimoError || "No se pudo conectar con la IA" });
+
+  try {
+    const tareaEmma = pedirJSON("Emma", instruccionesEmma(nivel, tema), mensajes, 0.8);
+    const tareaRevisor = respuestaAlumno
+      ? pedirJSON("Revisor", instruccionesRevisor(nivel), [{
+          role: "user",
+          content: `Teacher's question: "${preguntaEmma || "(start of class)"}"\nStudent's answer: "${respuestaAlumno}"`
+        }], 0.2).catch(e => { console.error("Revisor falló:", e.message); return null; })
+      : Promise.resolve(null);
+
+    const [emma, revision] = await Promise.all([tareaEmma, tareaRevisor]);
+
+    let correction = "";
+    let tip_es = "";
+    if (revision && revision.ok === false && revision.correction && simple(revision.correction) !== simple(respuestaAlumno)) {
+      correction = revision.correction;
+      tip_es = revision.tip_es || "";
+    }
+
+    return res.status(200).json({
+      reply: emma.reply || "",
+      reply_es: emma.reply_es || "",
+      student_es: (revision && revision.student_es) || "",
+      correction,
+      tip_es
+    });
+  } catch (e) {
+    return res.status(502).json({ error: e.message || "No se pudo conectar con la IA" });
+  }
 };
